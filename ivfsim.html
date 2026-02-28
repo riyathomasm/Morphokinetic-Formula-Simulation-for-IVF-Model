@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morphokinetic Analysis — IVF Embryo Viability</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050a14;
+    --surface: #0a1628;
+    --border: #162040;
+    --accent1: #00d4ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --accent4: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --glow1: rgba(0,212,255,0.15);
+    --glow2: rgba(124,58,237,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Outfit',sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100vh; overflow-x:hidden;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,212,255,0.03) 1px,transparent 1px);
+    background-size:40px 40px; pointer-events:none; z-index:0;
+  }
+  .container { max-width:1260px; margin:0 auto; padding:36px 20px; position:relative; z-index:1; }
+
+  /* HEADER */
+  .header { text-align:center; margin-bottom:44px; }
+  .header .badge {
+    display:inline-block; font-family:'JetBrains Mono',monospace;
+    font-size:10px; letter-spacing:3px; text-transform:uppercase;
+    color:var(--accent1); border:1px solid var(--accent1);
+    padding:4px 14px; border-radius:2px; margin-bottom:18px;
+    animation:fadeSlideDown .6s ease both;
+  }
+  .header h1 {
+    font-size:clamp(24px,4vw,46px); font-weight:900; line-height:1.1;
+    background:linear-gradient(135deg,#fff 30%,var(--accent1) 70%,var(--accent2) 100%);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    animation:fadeSlideDown .7s ease .1s both;
+  }
+  .header p { margin-top:10px; color:var(--muted); font-size:13px; font-weight:300; animation:fadeSlideDown .7s ease .2s both; }
+
+  /* STEP NAV */
+  .step-nav {
+    display:flex; justify-content:center; align-items:center; gap:0;
+    margin-bottom:32px; flex-wrap:wrap;
+    animation:fadeSlideDown .7s ease .3s both;
+  }
+  .step-item { display:flex; align-items:center; }
+  .step-btn {
+    display:flex; align-items:center; gap:7px;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:7px 13px; cursor:pointer;
+    transition:all .3s ease; font-family:'Outfit',sans-serif;
+    font-size:11px; color:var(--muted); font-weight:500;
+  }
+  .step-btn:hover { border-color:var(--muted); color:var(--text); }
+  .step-btn.active { border-color:var(--accent1); color:var(--accent1); background:rgba(0,212,255,0.06); box-shadow:0 0 12px var(--glow1); }
+  .step-num { font-family:'JetBrains Mono',monospace; font-size:9px; width:16px; height:16px; border-radius:50%; background:var(--border); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .step-btn.active .step-num { background:var(--accent1); color:#000; }
+  .step-connector { width:20px; height:1px; background:var(--border); margin:0 2px; }
+
+  /* STAGE */
+  .stage {
+    position:relative; background:var(--surface);
+    border:1px solid var(--border); border-radius:16px;
+    padding:32px; overflow:hidden;
+    animation:fadeSlideDown .8s ease .4s both;
+  }
+  .stage::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:2px;
+    background:linear-gradient(90deg,transparent,var(--accent1),var(--accent2),transparent);
+    animation:scanLine 3s linear infinite;
+  }
+  .stage-scan {
+    position:absolute; left:0; right:0; height:2px;
+    background:linear-gradient(90deg,transparent,rgba(0,212,255,0.25),transparent);
+    animation:scanDown 5s linear infinite; pointer-events:none;
+  }
+
+  /* PANELS */
+  .panel { display:none; animation:panelIn .45s ease both; }
+  .panel.active { display:block; }
+  .panel-title {
+    font-size:10px; letter-spacing:2.5px; text-transform:uppercase;
+    font-family:'JetBrains Mono',monospace; color:var(--accent1);
+    margin-bottom:22px; display:flex; align-items:center; gap:10px;
+  }
+  .panel-title::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* ── FORMULA BLOCK ── */
+  .formula-block {
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:11px; padding:16px 18px; margin-bottom:12px;
+    transition:all .3s ease; position:relative; overflow:hidden;
+  }
+  .formula-block::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:2px; }
+  .formula-block.cyan::before  { background:var(--accent1); }
+  .formula-block.purple::before{ background:var(--accent2); }
+  .formula-block.green::before { background:var(--accent3); }
+  .formula-block.amber::before { background:var(--accent4); }
+  .formula-block.red::before   { background:var(--danger); }
+  .formula-block:hover { border-color:#243060; }
+
+  .fb-header { display:flex; align-items:center; gap:9px; margin-bottom:9px; flex-wrap:wrap; }
+  .fb-chip {
+    font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1px;
+    padding:2px 7px; border-radius:3px; font-weight:700; flex-shrink:0;
+  }
+  .fb-chip.cyan   { background:rgba(0,212,255,0.12); color:var(--accent1); border:1px solid rgba(0,212,255,0.25); }
+  .fb-chip.purple { background:rgba(124,58,237,0.12); color:#a78bfa; border:1px solid rgba(124,58,237,0.25); }
+  .fb-chip.green  { background:rgba(16,185,129,0.12); color:var(--accent3); border:1px solid rgba(16,185,129,0.25); }
+  .fb-chip.amber  { background:rgba(245,158,11,0.12); color:var(--accent4); border:1px solid rgba(245,158,11,0.25); }
+  .fb-chip.red    { background:rgba(239,68,68,0.12); color:var(--danger); border:1px solid rgba(239,68,68,0.25); }
+  .fb-name { font-size:13px; font-weight:700; }
+
+  .fb-eq {
+    font-family:'JetBrains Mono',monospace; font-size:13px;
+    background:rgba(0,0,0,0.45); border-radius:7px; padding:10px 13px;
+    color:#fff; margin-bottom:10px; border:1px solid rgba(255,255,255,0.04);
+    word-break:break-word; line-height:1.7;
+  }
+  .fb-eq .sym { color:var(--accent1); font-weight:600; }
+  .fb-eq .op  { color:#a78bfa; }
+
+  /* Symbol legend */
+  .sym-legend {
+    display:grid; grid-template-columns:auto 1fr;
+    gap:3px 12px;
+  }
+  .sl-sym {
+    font-family:'JetBrains Mono',monospace; font-size:11px;
+    color:var(--accent1); font-weight:600; white-space:nowrap;
+    padding:3px 0; align-self:start;
+  }
+  .sl-def { font-size:11px; color:var(--muted); padding:3px 0; line-height:1.55; }
+  .sl-def strong { color:var(--text); font-weight:500; }
+
+  /* Collapsible legend */
+  .legend-toggle {
+    font-family:'JetBrains Mono',monospace; font-size:9px; letter-spacing:1px;
+    color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; gap:6px;
+    margin-bottom:5px; padding:4px 8px; border:1px solid var(--border); border-radius:5px;
+    user-select:none; transition:all .2s; background:rgba(0,0,0,.2);
+  }
+  .legend-toggle:hover { color:var(--accent1); border-color:var(--accent1); }
+  .legend-toggle .arrow { transition:transform .3s; display:inline-block; font-size:8px; }
+  .legend-toggle.open .arrow { transform:rotate(90deg); }
+  .legend-body { overflow:hidden; transition:max-height .4s ease; max-height:0; }
+  .legend-body.open { max-height:500px; }
+
+  /* OVERVIEW */
+  .ov-wrap { display:flex; align-items:stretch; justify-content:center; gap:0; width:100%; }
+  .ov-branch { display:flex; flex-direction:column; gap:10px; flex:1; max-width:230px; }
+  .ov-center { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:0 18px; gap:10px; }
+  .flow-node {
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:11px; padding:14px 18px; text-align:center;
+    transition:all .3s ease;
+  }
+  .flow-node:hover { transform:translateY(-3px); box-shadow:0 6px 20px var(--glow1); }
+  .flow-node .node-icon { font-size:22px; display:block; margin-bottom:5px; }
+  .flow-node .node-title { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+  .flow-node .node-sub { font-size:10px; color:var(--muted); margin-top:3px; font-family:'JetBrains Mono',monospace; }
+  .ov-arrow { font-size:18px; text-align:center; animation:pulse 1.8s ease infinite; }
+  .audit-box {
+    background:linear-gradient(135deg,var(--accent4),#f97316);
+    border-radius:9px; padding:12px 16px; text-align:center;
+    color:#000; font-weight:800; font-size:11px; letter-spacing:1px;
+  }
+  .verdict-box {
+    background:linear-gradient(135deg,rgba(16,185,129,.13),rgba(0,212,255,.07));
+    border:1px solid var(--accent3); border-radius:9px; padding:12px 16px; text-align:center;
+  }
+  .verdict-box .vl { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--accent3); font-family:'JetBrains Mono',monospace; }
+  .verdict-box .vv { font-size:18px; font-weight:900; color:var(--accent3); margin-top:3px; }
+
+  /* GRU PANEL */
+  .gru-layout { display:grid; grid-template-columns:190px 1fr; gap:24px; align-items:start; }
+  .frames-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; }
+  .frame-cell {
+    aspect-ratio:1; border-radius:5px; background:var(--bg);
+    border:1px solid var(--border); display:flex; align-items:center;
+    justify-content:center; transition:all .3s ease; overflow:hidden;
+  }
+  .frame-cell.lit { border-color:var(--accent1); box-shadow:0 0 8px var(--glow1); }
+
+  .timeline-chart { margin-top:10px; }
+  .timeline-stage { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
+  .ts-label { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted); width:36px; text-align:right; flex-shrink:0; }
+  .ts-bar-bg { flex:1; height:8px; background:var(--bg); border-radius:4px; overflow:hidden; }
+  .ts-bar-fill { height:100%; border-radius:4px; animation:fillBar 1.8s ease both; }
+
+  /* MORPH */
+  .morph-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+  .morph-card {
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:11px; padding:18px; text-align:center;
+    transition:all .3s ease; position:relative; overflow:hidden;
+  }
+  .morph-card::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; }
+  .morph-card.sym::after  { background:var(--accent1); }
+  .morph-card.frag::after { background:var(--danger); }
+  .morph-card.zona::after { background:var(--accent3); }
+  .morph-card:hover { transform:translateY(-3px); }
+  .morph-icon { font-size:26px; display:block; margin-bottom:8px; }
+  .morph-title { font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; }
+  .morph-card.sym .morph-title  { color:var(--accent1); }
+  .morph-card.frag .morph-title { color:var(--danger); }
+  .morph-card.zona .morph-title { color:var(--accent3); }
+  .morph-desc { font-size:10px; color:var(--muted); line-height:1.6; }
+
+  /* PROGRESS */
+  .progress-row { margin-bottom:8px; }
+  .progress-label { display:flex; justify-content:space-between; font-size:10px; margin-bottom:3px; }
+  .progress-bar-bg { background:var(--bg); border-radius:3px; height:6px; overflow:hidden; }
+  .progress-bar-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent1),var(--accent2)); animation:fillBar 1.5s ease both; }
+
+  /* AUDIT */
+  .audit-layout { display:grid; grid-template-columns:1fr auto 1fr; gap:18px; align-items:start; }
+  .signal-card { background:var(--bg); border:1px solid var(--border); border-radius:9px; padding:11px 13px; margin-bottom:8px; }
+  .signal-header { font-size:9px; font-weight:700; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-bottom:5px; }
+  .signal-value { font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--accent1); }
+  .signal-bar { height:5px; border-radius:3px; margin-top:5px; background:var(--border); overflow:hidden; }
+  .signal-fill { height:100%; border-radius:3px; animation:fillBar 2s ease both; }
+  .verdict { background:linear-gradient(135deg,rgba(16,185,129,.13),rgba(0,212,255,.07)); border:1px solid var(--accent3); border-radius:11px; padding:16px; text-align:center; }
+  .verdict-label { font-size:9px; letter-spacing:2px; text-transform:uppercase; color:var(--accent3); font-family:'JetBrains Mono',monospace; margin-bottom:6px; }
+  .verdict-value { font-size:18px; font-weight:900; color:var(--accent3); }
+  .verdict-sub { font-size:10px; color:var(--muted); margin-top:4px; }
+  .audit-logic { display:flex; flex-direction:column; align-items:center; gap:8px; padding-top:16px; }
+
+  /* RESULTS */
+  .results-grid { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  .conf-matrix { background:var(--bg); border:1px solid var(--border); border-radius:11px; padding:18px; }
+  .conf-title { font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+  .matrix-grid { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+  .matrix-cell { border-radius:9px; padding:14px; text-align:center; font-size:24px; font-weight:900; font-family:'JetBrains Mono',monospace; }
+  .matrix-cell.tp { background:rgba(16,185,129,.14); border:1px solid var(--accent3); color:var(--accent3); }
+  .matrix-cell.tn { background:rgba(0,212,255,.09); border:1px solid var(--accent1); color:var(--accent1); }
+  .matrix-cell.fp { background:rgba(245,158,11,.09); border:1px solid var(--accent4); color:var(--accent4); }
+  .matrix-cell.fn { background:rgba(239,68,68,.09); border:1px solid var(--danger); color:var(--danger); }
+  .cell-label { font-size:8px; display:block; margin-top:3px; font-weight:400; letter-spacing:1px; text-transform:uppercase; font-family:'Outfit',sans-serif; }
+  .metrics-col { display:flex; flex-direction:column; gap:8px; }
+  .metric-pill { background:var(--bg); border:1px solid var(--border); border-radius:9px; padding:11px 14px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .metric-name { font-size:10px; color:var(--muted); }
+  .metric-val { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; color:var(--accent1); flex-shrink:0; }
+
+  /* DIVIDER */
+  .divider { height:1px; background:var(--border); margin:13px 0; }
+
+  /* TAGS */
+  .tag { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:8px; letter-spacing:1px; text-transform:uppercase; padding:2px 7px; border-radius:3px; margin:2px; }
+  .tag.cyan   { background:rgba(0,212,255,.1); color:var(--accent1); border:1px solid rgba(0,212,255,.25); }
+  .tag.purple { background:rgba(124,58,237,.1); color:#a78bfa; border:1px solid rgba(124,58,237,.25); }
+  .tag.green  { background:rgba(16,185,129,.1); color:var(--accent3); border:1px solid rgba(16,185,129,.25); }
+
+  /* NAV */
+  .nav-row { display:flex; justify-content:center; gap:14px; margin-top:32px; animation:fadeSlideDown .8s ease .5s both; }
+  .nav-btn { font-family:'Outfit',sans-serif; font-size:13px; font-weight:600; padding:9px 26px; border-radius:8px; cursor:pointer; transition:all .25s ease; letter-spacing:.5px; border:none; }
+  .nav-btn.prev { background:var(--surface); color:var(--muted); border:1px solid var(--border); }
+  .nav-btn.prev:hover { color:var(--text); border-color:var(--muted); }
+  .nav-btn.next { background:linear-gradient(135deg,var(--accent1),var(--accent2)); color:white; }
+  .nav-btn.next:hover { transform:translateY(-2px); box-shadow:0 8px 20px var(--glow2); }
+
+  /* KEYFRAMES */
+  @keyframes fadeSlideDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes panelIn { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  @keyframes scanLine { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+  @keyframes fillBar { from{width:0} to{width:var(--w)} }
+  @keyframes scanDown { from{transform:translateY(-10px)} to{transform:translateY(700px)} }
+  @keyframes flowGlow { 0%,100%{box-shadow:none;border-color:var(--border)} 50%{box-shadow:0 0 18px var(--glow1);border-color:var(--accent1)} }
+
+  @media(max-width:760px){
+    .gru-layout,.morph-grid,.audit-layout,.results-grid{grid-template-columns:1fr;}
+    .ov-wrap{flex-direction:column;align-items:center;}
+    .stage{padding:18px 12px;}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <span class="badge">IEEE Conference Paper</span>
+    <h1>Morphokinetic Analysis &amp;<br>Embryo Viability Classification</h1>
+    <p>Full formula walkthrough with symbol definitions — IVF dual-inference AI framework</p>
+  </div>
+
+  <div class="step-nav" id="stepNav"></div>
+
+  <div class="stage">
+    <div class="stage-scan"></div>
+
+    <!-- ══════════════════════════════════════
+         PANEL 0 — OVERVIEW
+    ══════════════════════════════════════ -->
+    <div class="panel active" id="panel-0">
+      <div class="panel-title">System Architecture Overview</div>
+      <div class="ov-wrap">
+        <div class="ov-branch">
+          <div class="flow-node" style="border-color:rgba(0,212,255,.3);animation:flowGlow 2.2s ease .1s infinite;">
+            <span class="node-icon">🎞️</span>
+            <div class="node-title" style="color:var(--accent1)">Motion Data</div>
+            <div class="node-sub">16-frame time-lapse</div>
+          </div>
+          <div class="ov-arrow" style="color:var(--accent1)">↓</div>
+          <div class="flow-node" style="border-color:rgba(0,212,255,.3);animation:flowGlow 2.2s ease .4s infinite;">
+            <span class="node-icon">🧠</span>
+            <div class="node-title" style="color:var(--accent1)">CNN-GRU</div>
+            <div class="node-sub">Temporal Specialist</div>
+          </div>
+          <div class="ov-arrow" style="color:var(--accent1)">↓</div>
+          <div class="flow-node" style="border-color:rgba(0,212,255,.3);animation:flowGlow 2.2s ease .7s infinite;">
+            <span class="node-icon">📈</span>
+            <div class="node-title" style="color:var(--accent1)">Kinetic Profile</div>
+            <div class="node-sub">14 dev. phases</div>
+          </div>
+        </div>
+        <div class="ov-center">
+          <div style="font-size:9px;color:var(--muted);letter-spacing:2px;font-family:'JetBrains Mono',monospace;text-align:center;">SECONDARY AUDIT</div>
+          <div style="font-size:26px;color:var(--accent4);">⟶</div>
+          <div class="audit-box">ENSEMBLE<br>FUSION</div>
+          <div style="font-size:26px;color:var(--accent4);">⟶</div>
+          <div class="verdict-box">
+            <div class="vl">Final Output</div>
+            <div class="vv">IVF Verdict</div>
+          </div>
+        </div>
+        <div class="ov-branch">
+          <div class="flow-node" style="border-color:rgba(124,58,237,.3);animation:flowGlow 2.2s ease .1s infinite;">
+            <span class="node-icon">🔬</span>
+            <div class="node-title" style="color:#a78bfa">Static Data</div>
+            <div class="node-sub">Single embryo image</div>
+          </div>
+          <div class="ov-arrow" style="color:#a78bfa">↓</div>
+          <div class="flow-node" style="border-color:rgba(124,58,237,.3);animation:flowGlow 2.2s ease .4s infinite;">
+            <span class="node-icon">🏗️</span>
+            <div class="node-title" style="color:#a78bfa">EfficientNet-B0</div>
+            <div class="node-sub">Spatial Morphology</div>
+          </div>
+          <div class="ov-arrow" style="color:#a78bfa">↓</div>
+          <div class="flow-node" style="border-color:rgba(124,58,237,.3);animation:flowGlow 2.2s ease .7s infinite;">
+            <span class="node-icon">⚖️</span>
+            <div class="node-title" style="color:#a78bfa">Viability Index</div>
+            <div class="node-sub">Binary: Good/Poor</div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:22px;background:rgba(0,212,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px 18px;">
+        <div style="font-size:9px;letter-spacing:2px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:7px;">CORE INNOVATION</div>
+        <div style="font-size:12px;line-height:1.8;color:var(--text);">
+          Static grading alone cannot capture developmental dynamics. This framework fuses
+          <strong style="color:var(--accent1)">spatiotemporal kinematics</strong> (GRU over 16 frames) with
+          <strong style="color:#a78bfa">structural morphology</strong> (EfficientNet-B0) via a
+          <strong style="color:var(--accent4)">Secondary Audit</strong> — producing robust, interpretable IVF predictions.<br>
+          <span style="color:var(--muted)">Use the navigation below to explore each stage's formulas and symbol definitions.</span>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════
+         PANEL 1 — CNN-GRU FORMULAS
+    ══════════════════════════════════════ -->
+    <div class="panel" id="panel-1">
+      <div class="panel-title">Temporal Specialist — CNN-GRU: All Formulas &amp; Symbol Definitions</div>
+      <div class="gru-layout">
+
+        <!-- Left: frames + timeline -->
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:7px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">16-FRAME SEQUENCE 𝒱</div>
+          <div class="frames-grid" id="framesGrid"></div>
+          <div style="margin-top:14px;">
+            <div style="font-size:9px;color:var(--muted);margin-bottom:7px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">MORPHOKINETIC TIMELINE</div>
+            <div class="timeline-chart" id="timelineChart"></div>
+          </div>
+          <div style="margin-top:9px;">
+            <div class="tag cyan">tPNa</div><div class="tag cyan">t2</div><div class="tag cyan">t3</div>
+            <div class="tag purple">tSB</div><div class="tag purple">tEB</div><div class="tag green">tHB</div>
+          </div>
+          <div class="divider"></div>
+          <div style="font-size:10px;color:var(--muted);line-height:1.7;">
+            The GRU processes the 16-frame tensor<br>
+            <strong style="color:var(--accent1)">𝒳 ∈ ℝ^(B × 16 × 1280)</strong><br>
+            where B = batch size, 16 = frames, 1280 = embedding dim from EfficientNet-B0.
+          </div>
+        </div>
+
+        <!-- Right: all 6 formulas -->
+        <div>
+
+          <!-- EQ i -->
+          <div class="formula-block cyan">
+            <div class="fb-header"><span class="fb-chip cyan">EQ. i</span><span class="fb-name">Spatial Feature Extraction</span></div>
+            <div class="fb-eq"><span class="sym">v</span><sub>t</sub> = <span class="op">GAP</span>(<span class="sym">Φ</span>(<span class="sym">x</span><sub>t</sub> ; <span class="sym">θ</span><sub>CNN</sub>))</div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">v<sub>t</sub></div><div class="sl-def"><strong>Spatial embedding</strong> — 1280-dimensional feature vector for frame t, encoding cytoplasm texture, granularity, and blastomere boundaries.</div>
+                <div class="sl-sym">GAP</div><div class="sl-def"><strong>Global Average Pooling</strong> — <code style="color:var(--accent1)">nn.AdaptiveAvgPool2d(1)</code>. Collapses the (H×W) spatial feature maps to a single vector by averaging, removing positional dependency.</div>
+                <div class="sl-sym">Φ(·)</div><div class="sl-def"><strong>EfficientNet-B0 backbone</strong> — frozen pre-trained CNN. Acts as a universal feature extractor; its learned ImageNet filters generalise to embryo textures.</div>
+                <div class="sl-sym">x<sub>t</sub></div><div class="sl-def"><strong>Input image frame</strong> at time step t — one of 16 frames from the time-lapse sequence, resized to 224×224 px.</div>
+                <div class="sl-sym">θ<sub>CNN</sub></div><div class="sl-def"><strong>CNN weight parameters (frozen)</strong> — pre-trained ImageNet weights; held fixed during training to preserve transfer learning benefits.</div>
+                <div class="sl-sym">t</div><div class="sl-def"><strong>Time step index</strong> — ranges from 1 to 16 over the 16 captured frames of one embryo sequence.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EQ ii -->
+          <div class="formula-block purple">
+            <div class="fb-header"><span class="fb-chip purple">EQ. ii</span><span class="fb-name">GRU Reset Gate</span></div>
+            <div class="fb-eq"><span class="sym">r</span><sub>t</sub> = <span class="op">σ</span>(<span class="sym">W</span><sub>r</sub> · [<span class="sym">h</span><sub>t-1</sub>, <span class="sym">v</span><sub>t</sub>])</div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">r<sub>t</sub></div><div class="sl-def"><strong>Reset gate vector</strong> — values in [0,1]. Controls how much prior memory h<sub>t-1</sub> is discarded. r≈0 → ignore past (useful when a new phase begins).</div>
+                <div class="sl-sym">σ(·)</div><div class="sl-def"><strong>Sigmoid activation</strong> — σ(x) = 1/(1+e<sup>−x</sup>). Squashes any real value to (0,1), acting as a differentiable binary gate.</div>
+                <div class="sl-sym">W<sub>r</sub></div><div class="sl-def"><strong>Reset weight matrix</strong> — learned during training; maps concatenated [h<sub>t-1</sub>, v<sub>t</sub>] to a gate decision. Determines what the model "forgets" at each step.</div>
+                <div class="sl-sym">h<sub>t-1</sub></div><div class="sl-def"><strong>Previous hidden state</strong> — GRU's memory of all frames before t. Shape: (B, hidden_size). Encodes the embryo's kinetic history up to frame t-1.</div>
+                <div class="sl-sym">[h, v]</div><div class="sl-def"><strong>Concatenation</strong> — h<sub>t-1</sub> and v<sub>t</sub> are joined along the feature dimension before multiplication, combining history and current frame.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EQ iii -->
+          <div class="formula-block amber">
+            <div class="fb-header"><span class="fb-chip amber">EQ. iii</span><span class="fb-name">GRU Update Gate</span></div>
+            <div class="fb-eq"><span class="sym">z</span><sub>t</sub> = <span class="op">σ</span>(<span class="sym">W</span><sub>z</sub> · [<span class="sym">h</span><sub>t-1</sub>, <span class="sym">v</span><sub>t</sub>])</div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">z<sub>t</sub></div><div class="sl-def"><strong>Update gate vector</strong> — values in [0,1]. Decides how much of the new candidate state h̃<sub>t</sub> replaces h<sub>t-1</sub>. z≈1 → fully update (major event detected, e.g. tPNa or tEB).</div>
+                <div class="sl-sym">W<sub>z</sub></div><div class="sl-def"><strong>Update weight matrix</strong> — learned parameters for the update gate. Calibrated to fire strongly on biologically significant transitions between developmental stages.</div>
+                <div class="sl-sym">σ(·)</div><div class="sl-def"><strong>Sigmoid activation</strong> — same role as in EQ. ii; output in (0,1) for soft, differentiable gating.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EQ iv -->
+          <div class="formula-block cyan">
+            <div class="fb-header"><span class="fb-chip cyan">EQ. iv</span><span class="fb-name">Hidden State Update</span></div>
+            <div class="fb-eq"><span class="sym">h</span><sub>t</sub> = (1 − <span class="sym">z</span><sub>t</sub>) ⊙ <span class="sym">h</span><sub>t-1</sub> + <span class="sym">z</span><sub>t</sub> ⊙ <span class="sym">h̃</span><sub>t</sub></div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">h<sub>t</sub></div><div class="sl-def"><strong>Updated hidden state</strong> — GRU's new memory after processing frame t. After all 16 frames, h<sub>16</sub> summarises the entire kinetic trajectory.</div>
+                <div class="sl-sym">⊙</div><div class="sl-def"><strong>Hadamard (element-wise) product</strong> — multiplies two vectors component-by-component. Enables each feature dimension to be independently gated.</div>
+                <div class="sl-sym">h̃<sub>t</sub></div><div class="sl-def"><strong>Candidate hidden state</strong> — the proposed new memory content, computed as tanh(W · [r<sub>t</sub>⊙h<sub>t-1</sub>, v<sub>t</sub>]). Uses the reset gate to selectively incorporate past information.</div>
+                <div class="sl-sym">(1−z<sub>t</sub>)</div><div class="sl-def"><strong>Retention coefficient</strong> — fraction of old state h<sub>t-1</sub> to preserve. Together with z<sub>t</sub>, these always sum to 1, ensuring no information is created from nothing.</div>
+                <div class="sl-sym">h<sub>16</sub></div><div class="sl-def"><strong>Final temporal summary</strong> — the hidden state after frame 16; fed directly into the classifier. Encodes the complete developmental velocity profile.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EQ v -->
+          <div class="formula-block green">
+            <div class="fb-header"><span class="fb-chip green">EQ. v</span><span class="fb-name">14-Class Stage Classifier</span></div>
+            <div class="fb-eq">ŷ = <span class="op">Softmax</span>(<span class="sym">W</span><sub>fc</sub> · <span class="sym">h</span><sub>16</sub> + <span class="sym">b</span><sub>fc</sub>)</div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">ŷ</div><div class="sl-def"><strong>Predicted probability vector</strong> — length 14. Each entry = probability the embryo is at developmental stage j. argmax(ŷ) = the detected phase.</div>
+                <div class="sl-sym">Softmax</div><div class="sl-def"><strong>Softmax activation</strong> — exp(z<sub>j</sub>)/Σ<sub>k</sub>exp(z<sub>k</sub>). Converts raw logits into a proper probability distribution summing to exactly 1.</div>
+                <div class="sl-sym">W<sub>fc</sub></div><div class="sl-def"><strong>Fully-connected weights</strong> — <code style="color:var(--accent1)">nn.Linear(hidden_size, 14)</code>. Maps the 1D temporal summary h<sub>16</sub> to 14 logit scores, one per developmental stage.</div>
+                <div class="sl-sym">b<sub>fc</sub></div><div class="sl-def"><strong>Bias vector</strong> — length 14. Learnable additive offset that shifts the decision boundary for each class independently.</div>
+                <div class="sl-sym">14 stages</div><div class="sl-def">tPNa, tPNf, t2, t3, t4, t5, t6, t7, t8, t9+, tM, tSB, tB, tEB — ordered developmental milestones from pronuclear appearance to expanded blastocyst.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EQ vi -->
+          <div class="formula-block red">
+            <div class="fb-header"><span class="fb-chip red">EQ. vi</span><span class="fb-name">Cross-Entropy Training Loss (converged = 1.6759)</span></div>
+            <div class="fb-eq">L = −(1/N) Σ<sub>i=1</sub><sup>N</sup> Σ<sub>j=1</sub><sup>C</sup> y<sub>i,j</sub> · log(ŷ<sub>i,j</sub>)</div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">L</div><div class="sl-def"><strong>Loss scalar</strong> — minimised via Adam/SGD backpropagation. Converged at <strong style="color:var(--accent1)">1.6759</strong>, indicating high sensitivity to subtle visual differences between adjacent developmental stages.</div>
+                <div class="sl-sym">N</div><div class="sl-def"><strong>Batch size</strong> — number of training samples processed per gradient update step.</div>
+                <div class="sl-sym">C</div><div class="sl-def"><strong>Number of classes</strong> — C = 14 developmental stages.</div>
+                <div class="sl-sym">y<sub>i,j</sub></div><div class="sl-def"><strong>Ground-truth label</strong> — 1 if sample i is at stage j, 0 otherwise. One-hot vector from expert embryologist annotation.</div>
+                <div class="sl-sym">ŷ<sub>i,j</sub></div><div class="sl-def"><strong>Predicted probability</strong> — model's confidence that sample i is at stage j; output of Softmax in EQ. v.</div>
+                <div class="sl-sym">log(·)</div><div class="sl-def"><strong>Natural logarithm</strong> — heavily penalises confident wrong predictions: if ŷ→0 for a true class, log(ŷ)→−∞, driving the model to be well-calibrated rather than overconfident.</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════
+         PANEL 2 — EFFICIENTNET FORMULAS
+    ══════════════════════════════════════ -->
+    <div class="panel" id="panel-2">
+      <div class="panel-title">Spatial Morphological Model — EfficientNet-B0: Formulas &amp; Symbol Definitions</div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:18px;align-items:start;">
+        <div>
+          <!-- EQ vii-ix -->
+          <div class="formula-block cyan">
+            <div class="fb-header"><span class="fb-chip cyan">EQ. vii–ix</span><span class="fb-name">Compound Scaling</span></div>
+            <div class="fb-eq">d = α<sup><span class="sym">φ</span></sup> &nbsp;·&nbsp; w = β<sup><span class="sym">φ</span></sup> &nbsp;·&nbsp; r = γ<sup><span class="sym">φ</span></sup></div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">d</div><div class="sl-def"><strong>Depth scaling factor</strong> — multiplies the number of network layers/blocks. More depth = more hierarchical abstraction. α = 1.2 for B0.</div>
+                <div class="sl-sym">w</div><div class="sl-def"><strong>Width scaling factor</strong> — scales number of feature channels per layer. More channels = more feature diversity per layer. β = 1.1 for B0.</div>
+                <div class="sl-sym">r</div><div class="sl-def"><strong>Resolution scaling factor</strong> — scales input image size. Higher r → finer spatial detail detected. γ = 1.15 for B0; input size = 224×224 px.</div>
+                <div class="sl-sym">α</div><div class="sl-def"><strong>Depth base constant</strong> — α = 1.2. Determines how aggressively depth grows with φ. Found via Neural Architecture Search (NAS).</div>
+                <div class="sl-sym">β</div><div class="sl-def"><strong>Width base constant</strong> — β = 1.1. Controls channel growth rate.</div>
+                <div class="sl-sym">γ</div><div class="sl-def"><strong>Resolution base constant</strong> — γ = 1.15. Controls image resolution growth rate.</div>
+                <div class="sl-sym">φ</div><div class="sl-def"><strong>Compound coefficient</strong> — single user-defined scalar controlling overall model scale. φ = 0 → B0 (smallest &amp; fastest); φ = 7 → B7 (largest &amp; most accurate).</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- EQ x -->
+          <div class="formula-block amber">
+            <div class="fb-header"><span class="fb-chip amber">EQ. x</span><span class="fb-name">FLOP Budget Constraint</span></div>
+            <div class="fb-eq">s.t. &nbsp; α · β<sup>2</sup> · γ<sup>2</sup> ≈ 2</div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">s.t.</div><div class="sl-def"><strong>"Subject to"</strong> — this is a constraint on how α, β, γ are chosen, not a formula to evaluate at runtime.</div>
+                <div class="sl-sym">α · β² · γ²</div><div class="sl-def"><strong>Total compute scaling proxy</strong> — FLOPs scale linearly with depth, quadratically with width (channel×channel), and quadratically with resolution (pixel×pixel). Their product must ≈ 2 so each φ-increment exactly doubles total compute.</div>
+                <div class="sl-sym">β²</div><div class="sl-def">Width is <strong>squared</strong> in FLOPs: each convolutional output feature interacts with all input channels, so doubling channels quadruples FLOPs.</div>
+                <div class="sl-sym">γ²</div><div class="sl-def">Resolution is <strong>squared</strong> in FLOPs: a 2× larger image has 4× more pixels, each requiring a full convolution.</div>
+                <div class="sl-sym">≈ 2</div><div class="sl-def">Keeps compound scaling mathematically consistent: each φ increment = 2× FLOPs, enabling predictable scaling behaviour.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preprocessing -->
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-top:4px;">
+            <div style="font-size:9px;color:var(--muted);margin-bottom:10px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">INPUT PREPROCESSING PARAMETERS</div>
+            <div class="progress-row"><div class="progress-label"><span>Resize → 224×224 px</span><span style="color:var(--accent1)">Bilinear interp.</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="--w:100%;"></div></div></div>
+            <div class="progress-row"><div class="progress-label"><span>Channel mean μ</span><span style="color:var(--accent1)">[0.485, 0.456, 0.406]</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="--w:68%;"></div></div></div>
+            <div class="progress-row"><div class="progress-label"><span>Channel std σ</span><span style="color:var(--accent1)">[0.229, 0.224, 0.225]</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="--w:65%;"></div></div></div>
+            <div class="divider"></div>
+            <div class="sym-legend">
+              <div class="sl-sym">μ (mean)</div><div class="sl-def">Per-channel mean computed over ImageNet. Subtracting it centres the distribution so activations don't saturate.</div>
+              <div class="sl-sym">σ (std)</div><div class="sl-def">Per-channel standard deviation. Dividing ensures unit variance — critical for stable gradient flow in frozen transfer learning layers.</div>
+              <div class="sl-sym">224×224</div><div class="sl-def">EfficientNet-B0's native input resolution. Bilinear interpolation rescales embryo microscopy images without jagged artefacts.</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <!-- Embryo comparison -->
+          <div style="font-size:9px;color:var(--muted);margin-bottom:10px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">BIOMARKER VISUAL COMPARISON</div>
+          <div style="display:flex;gap:18px;justify-content:center;align-items:flex-start;">
+            <div style="text-align:center;">
+              <svg width="100" height="100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(239,68,68,0.4)" stroke-width="2" stroke-dasharray="4,3"/>
+                <circle cx="35" cy="38" r="12" fill="none" stroke="rgba(239,68,68,0.55)" stroke-width="1.5"/>
+                <circle cx="59" cy="33" r="9" fill="none" stroke="rgba(239,68,68,0.5)" stroke-width="1.5"/>
+                <circle cx="40" cy="62" r="10" fill="none" stroke="rgba(239,68,68,0.45)" stroke-width="1.5"/>
+                <circle cx="64" cy="59" r="7" fill="none" stroke="rgba(239,68,68,0.4)" stroke-width="1.5"/>
+                <ellipse cx="26" cy="62" rx="4" ry="3" fill="rgba(239,68,68,0.3)"/>
+                <ellipse cx="70" cy="42" rx="3.5" ry="4" fill="rgba(239,68,68,0.28)"/>
+                <ellipse cx="55" cy="74" rx="4.5" ry="3" fill="rgba(239,68,68,0.28)"/>
+              </svg>
+              <div style="font-size:10px;color:var(--danger);font-weight:700;margin-top:3px;">POOR Embryo</div>
+              <div style="font-size:9px;color:var(--muted);">Asymmetric, fragmented</div>
+              <div style="font-size:9px;color:var(--muted);">Complexity: 81.1 ± 15.7</div>
+            </div>
+            <div style="font-size:20px;color:var(--muted);align-self:center;">vs</div>
+            <div style="text-align:center;">
+              <svg width="100" height="100" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(16,185,129,0.65)" stroke-width="2.5"/>
+                <circle cx="37" cy="37" r="13" fill="none" stroke="rgba(16,185,129,0.6)" stroke-width="1.5"/>
+                <circle cx="63" cy="37" r="13" fill="none" stroke="rgba(16,185,129,0.6)" stroke-width="1.5"/>
+                <circle cx="37" cy="63" r="13" fill="none" stroke="rgba(16,185,129,0.6)" stroke-width="1.5"/>
+                <circle cx="63" cy="63" r="13" fill="none" stroke="rgba(16,185,129,0.6)" stroke-width="1.5"/>
+                <circle cx="50" cy="50" r="6" fill="rgba(16,185,129,0.18)" stroke="rgba(16,185,129,0.5)" stroke-width="1"/>
+              </svg>
+              <div style="font-size:10px;color:var(--accent3);font-weight:700;margin-top:3px;">GOOD Embryo</div>
+              <div style="font-size:9px;color:var(--muted);">Symmetric, intact zona</div>
+              <div style="font-size:9px;color:var(--muted);">Symmetry: 77.3 ± 4.0</div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:8px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">CLASSIFIER HEAD MODIFICATION</div>
+          <div style="background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:12px 14px;font-size:12px;line-height:2;">
+            <span style="color:var(--danger)">nn.Linear(1280, 1000)</span> — original ImageNet head<br>
+            <span style="color:var(--muted)">↓ replaced with ↓</span><br>
+            <span style="color:var(--accent3)">nn.Linear(1280, 2)</span> — Binary Viability Classifier
+          </div>
+          <div class="sym-legend" style="margin-top:8px;">
+            <div class="sl-sym">1280</div><div class="sl-def"><strong>Feature dimension</strong> from EfficientNet-B0's penultimate layer after Global Average Pooling — encodes embryo morphology.</div>
+            <div class="sl-sym">2</div><div class="sl-def"><strong>Output classes</strong> — Class 0 = Poor (non-viable), Class 1 = Good (viable). Forces the entire 1280-dim space into a single viability axis.</div>
+          </div>
+
+          <div class="divider"></div>
+          <div class="morph-grid" style="grid-template-columns:1fr 1fr 1fr;">
+            <div class="morph-card sym"><span class="morph-icon">⬡</span><div class="morph-title">Symmetry</div><div class="morph-desc">Good: 77.3 ± 4.0<br>Lower std = consistent healthy cleavage.</div></div>
+            <div class="morph-card frag"><span class="morph-icon">🧩</span><div class="morph-title">Fragmentation</div><div class="morph-desc">Poor: complexity 81.1<br>Debris in perivitelline space.</div></div>
+            <div class="morph-card zona"><span class="morph-icon">🔵</span><div class="morph-title">Zona</div><div class="morph-desc">Checks regularity &amp; thickness of protective outer shell.</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════
+         PANEL 3 — SECONDARY AUDIT
+    ══════════════════════════════════════ -->
+    <div class="panel" id="panel-3">
+      <div class="panel-title">Secondary Audit — Ensemble Fusion Logic &amp; Formula Definitions</div>
+      <div class="audit-layout">
+
+        <!-- Temporal outputs -->
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:9px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">TEMPORAL MODEL OUTPUT</div>
+          <div class="signal-card">
+            <div class="signal-header">Detected Stage</div>
+            <div class="signal-value">tEB — Expanded Blastocyst</div>
+            <div class="signal-bar"><div class="signal-fill" style="--w:88%;background:linear-gradient(90deg,var(--accent1),#0ea5e9);"></div></div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-header">Developmental Velocity</div>
+            <div class="signal-value">Nominal (frame ~290)</div>
+            <div class="signal-bar"><div class="signal-fill" style="--w:72%;background:linear-gradient(90deg,var(--accent2),#8b5cf6);"></div></div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-header">Kinetic Score K<sub>score</sub></div>
+            <div class="signal-value">0.84 / 1.00</div>
+            <div class="signal-bar"><div class="signal-fill" style="--w:84%;background:linear-gradient(90deg,var(--accent1),var(--accent2));"></div></div>
+          </div>
+          <div style="margin-top:7px;">
+            <div class="tag cyan">tPNa ✓</div><div class="tag cyan">t2 ✓</div>
+            <div class="tag cyan">t8 ✓</div><div class="tag purple">tSB ✓</div><div class="tag purple">tEB ✓</div>
+          </div>
+
+          <div class="divider"></div>
+          <!-- Fusion formula -->
+          <div class="formula-block amber">
+            <div class="fb-header"><span class="fb-chip amber">FUSION LOGIC</span><span class="fb-name">Ensemble Decision</span></div>
+            <div class="fb-eq" style="font-size:11px;">P<sub>final</sub> = f(<span class="sym">K</span><sub>score</sub>, <span class="sym">M</span><sub>score</sub>)<br>viable = (K<sub>score</sub> ≥ θ₁) ∧ (M<sub>score</sub> ≥ θ₂)</div>
+            <div class="legend-toggle" onclick="toggleLegend(this)"><span class="arrow">▶</span>&nbsp;EXPAND SYMBOL LEGEND</div>
+            <div class="legend-body">
+              <div class="sym-legend">
+                <div class="sl-sym">P<sub>final</sub></div><div class="sl-def"><strong>Final prediction</strong> — binary: Viable (transfer recommended) or Non-viable. The ultimate clinical decision output.</div>
+                <div class="sl-sym">f(·)</div><div class="sl-def"><strong>Secondary Audit function</strong> — cross-validates kinetic milestones against morphological quality. Both models must agree (above thresholds) for a Viable verdict.</div>
+                <div class="sl-sym">K<sub>score</sub></div><div class="sl-def"><strong>Kinetic confidence score</strong> — max probability from CNN-GRU Softmax output for the predicted developmental stage. Encodes developmental trajectory quality.</div>
+                <div class="sl-sym">M<sub>score</sub></div><div class="sl-def"><strong>Morphological viability index</strong> — binary Class 1 probability from EfficientNet-B0 + symmetry/fragmentation/zona composite metric.</div>
+                <div class="sl-sym">θ₁</div><div class="sl-def"><strong>Kinetic threshold</strong> — minimum K<sub>score</sub> to accept an embryo as kinetically viable. Set conservatively to reduce false positives (non-viable embryos wrongly transferred).</div>
+                <div class="sl-sym">θ₂</div><div class="sl-def"><strong>Morphological threshold</strong> — minimum M<sub>score</sub>. Together with θ₁, the dual-threshold design ensures both dynamic and structural criteria are satisfied simultaneously.</div>
+                <div class="sl-sym">∧</div><div class="sl-def"><strong>Logical AND</strong> — both conditions must hold. This conservative fusion prevents either model from unilaterally approving a transfer.</div>
+              </div>
+            </div>
+          </div>
+          <!-- Pseudocode -->
+          <div style="background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:8px;padding:11px 13px;font-family:'JetBrains Mono',monospace;font-size:10px;line-height:2.1;margin-top:8px;">
+            <span style="color:var(--accent4)">IF</span> K<sub>score</sub> ≥ θ₁<br>
+            &nbsp;&nbsp;<span style="color:var(--accent4)">AND</span> M<sub>score</sub> ≥ θ₂<br>
+            &nbsp;&nbsp;<span style="color:var(--accent4)">AND</span> milestones_reached(tEB)<br>
+            <span style="color:var(--accent4)">THEN</span> verdict = <span style="color:var(--accent3)">"VIABLE"</span><br>
+            <span style="color:var(--accent4)">ELSE</span> verdict = <span style="color:var(--danger)">"NON-VIABLE"</span>
+          </div>
+        </div>
+
+        <!-- Center -->
+        <div class="audit-logic">
+          <div style="font-size:8px;letter-spacing:2px;color:var(--muted);font-family:'JetBrains Mono',monospace;">INPUTS</div>
+          <div style="font-size:24px;color:var(--accent4);animation:pulse 1.8s ease infinite;">⟶</div>
+          <div class="audit-box">SECONDARY<br>AUDIT</div>
+          <div style="font-size:24px;color:var(--accent4);animation:pulse 1.8s ease .3s infinite;">⟶</div>
+          <div style="text-align:center;padding:10px 13px;background:rgba(245,158,11,.07);border:1px solid var(--accent4);border-radius:8px;font-size:10px;color:var(--accent4);">
+            K<sub>score</sub> ✕ M<sub>score</sub><br>Cross-Validation
+          </div>
+        </div>
+
+        <!-- Morphological outputs + verdict -->
+        <div>
+          <div style="font-size:9px;color:var(--muted);margin-bottom:9px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">MORPHOLOGICAL MODEL OUTPUT</div>
+          <div class="signal-card">
+            <div class="signal-header">Viability Index M<sub>score</sub></div>
+            <div class="signal-value">Class 1 — GOOD</div>
+            <div class="signal-bar"><div class="signal-fill" style="--w:78%;background:linear-gradient(90deg,var(--accent3),#34d399);"></div></div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-header">Blastomere Symmetry</div>
+            <div class="signal-value">78.8 / 100</div>
+            <div class="signal-bar"><div class="signal-fill" style="--w:79%;background:linear-gradient(90deg,var(--accent3),#34d399);"></div></div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-header">Fragmentation Level</div>
+            <div class="signal-value">Low — 19.3%</div>
+            <div class="signal-bar"><div class="signal-fill" style="--w:19%;background:linear-gradient(90deg,var(--accent3),#34d399);"></div></div>
+          </div>
+          <div class="signal-card">
+            <div class="signal-header">Zona Pellucida Integrity</div>
+            <div class="signal-value">Uniform — Pass ✓</div>
+            <div class="signal-bar"><div class="signal-fill" style="--w:92%;background:linear-gradient(90deg,var(--accent3),#34d399);"></div></div>
+          </div>
+
+          <div class="verdict" style="margin-top:12px;">
+            <div class="verdict-label">Final IVF Prediction</div>
+            <div class="verdict-value">✓ VIABLE</div>
+            <div class="verdict-sub">K<sub>score</sub> = 0.84 ≥ θ₁ &nbsp;∧&nbsp; M<sub>score</sub> = 0.78 ≥ θ₂<br>Recommended for transfer</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════
+         PANEL 4 — RESULTS
+    ══════════════════════════════════════ -->
+    <div class="panel" id="panel-4">
+      <div class="panel-title">Results, Confusion Matrix &amp; Performance Metrics</div>
+      <div class="results-grid">
+        <div>
+          <div class="conf-matrix">
+            <div class="conf-title">Static Model Confusion Matrix (N = 180)</div>
+            <div style="display:flex;gap:7px;margin-bottom:5px;padding-left:46px;">
+              <div style="flex:1;text-align:center;font-size:8px;color:var(--muted);font-family:'JetBrains Mono',monospace;">PRED: POOR</div>
+              <div style="flex:1;text-align:center;font-size:8px;color:var(--muted);font-family:'JetBrains Mono',monospace;">PRED: GOOD</div>
+            </div>
+            <div style="display:flex;gap:7px;align-items:center;">
+              <div style="display:flex;flex-direction:column;gap:7px;margin-right:3px;">
+                <div style="font-size:7px;color:var(--muted);transform:rotate(-90deg);white-space:nowrap;font-family:'JetBrains Mono',monospace;height:54px;display:flex;align-items:center;justify-content:center;">TRUE POOR</div>
+                <div style="font-size:7px;color:var(--muted);transform:rotate(-90deg);white-space:nowrap;font-family:'JetBrains Mono',monospace;height:54px;display:flex;align-items:center;justify-content:center;">TRUE GOOD</div>
+              </div>
+              <div class="matrix-grid" style="flex:1;">
+                <div class="matrix-cell tn">119<span class="cell-label">True Neg.</span></div>
+                <div class="matrix-cell fp">1<span class="cell-label">False Pos.</span></div>
+                <div class="matrix-cell fn">37<span class="cell-label">False Neg.</span></div>
+                <div class="matrix-cell tp">23<span class="cell-label">True Pos.</span></div>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+            <div style="font-size:9px;color:var(--muted);margin-bottom:8px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">CONFUSION MATRIX DEFINITIONS</div>
+            <div class="sym-legend">
+              <div class="sl-sym" style="color:var(--accent1)">TN = 119</div><div class="sl-def"><strong>True Negatives</strong> — 119/120 Poor embryos correctly excluded. Specificity = TN/(TN+FP) = <strong style="color:var(--accent3)">99.2%</strong>.</div>
+              <div class="sl-sym" style="color:var(--accent4)">FP = 1</div><div class="sl-def"><strong>False Positive</strong> — 1 Poor embryo wrongly labelled Good. Very low; prevents risky transfers.</div>
+              <div class="sl-sym" style="color:var(--danger)">FN = 37</div><div class="sl-def"><strong>False Negatives</strong> — 37 viable embryos missed by static model. Conservative bias; mitigated by temporal model fusion.</div>
+              <div class="sl-sym" style="color:var(--accent3)">TP = 23</div><div class="sl-def"><strong>True Positives</strong> — viable embryos correctly identified. Recall = 23/60 = 38.3% on static alone → justifies dual-model architecture.</div>
+            </div>
+
+            <div class="divider"></div>
+            <div style="font-size:9px;color:var(--muted);margin-bottom:8px;font-family:'JetBrains Mono',monospace;letter-spacing:1px;">DERIVED METRIC FORMULAS</div>
+            <div class="sym-legend">
+              <div class="sl-sym">Specificity</div><div class="sl-def">TN / (TN+FP) = 119/120 = <strong style="color:var(--accent3)">99.2%</strong>. Clinical priority: do NOT transfer non-viable embryos.</div>
+              <div class="sl-sym">Sensitivity</div><div class="sl-def">TP / (TP+FN) = 23/60 = 38.3%. Low for static alone → dual-model fusion essential to recover viable embryos.</div>
+              <div class="sl-sym">Precision</div><div class="sl-def">TP / (TP+FP) = 23/24 = <strong style="color:var(--accent3)">95.8%</strong>. When model predicts Good, it is almost always correct.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="metrics-col">
+          <div style="font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;letter-spacing:1px;margin-bottom:2px;">SYSTEM METRICS</div>
+          <div class="metric-pill"><span class="metric-name">CNN-GRU Training Loss (converged)</span><span class="metric-val">1.6759</span></div>
+          <div class="metric-pill"><span class="metric-name">Developmental Phases Classified (C)</span><span class="metric-val">14</span></div>
+          <div class="metric-pill"><span class="metric-name">Specificity — static model</span><span class="metric-val">99.2%</span></div>
+          <div class="metric-pill"><span class="metric-name">Poor Embryo Complexity avg ± std</span><span class="metric-val">81.1 ± 15.7</span></div>
+          <div class="metric-pill"><span class="metric-name">Good Embryo Symmetry avg ± std</span><span class="metric-val">77.3 ± 4.0</span></div>
+          <div class="metric-pill"><span class="metric-name">Input frames per sequence (T)</span><span class="metric-val">16</span></div>
+          <div class="metric-pill"><span class="metric-name">Embedding dimension per frame</span><span class="metric-val">1280-d</span></div>
+          <div class="metric-pill"><span class="metric-name">Tensor shape 𝒳</span><span class="metric-val">B×16×1280</span></div>
+
+          <div style="background:linear-gradient(135deg,rgba(0,212,255,.05),rgba(124,58,237,.05));border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-top:2px;">
+            <div style="font-size:9px;letter-spacing:2px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-bottom:7px;">WHY DUAL MODEL FUSION?</div>
+            <div style="font-size:11px;line-height:1.8;color:var(--text);">
+              Static EfficientNet-B0 achieves <strong style="color:var(--accent3)">99.2% specificity</strong> but only <strong style="color:var(--danger)">38.3% sensitivity</strong>. The CNN-GRU temporal model recovers the 37 missed viable embryos by analysing kinetic velocity and milestone sequences — information impossible to extract from a single image snapshot. The Secondary Audit fusion delivers both <strong style="color:var(--accent1)">high specificity</strong> and <strong style="color:#a78bfa">improved sensitivity</strong>, making it clinically safer than either model alone.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /stage -->
+
+  <div class="nav-row">
+    <button class="nav-btn prev" onclick="changePanel(-1)">← Previous</button>
+    <button class="nav-btn next" onclick="changePanel(1)">Next →</button>
+  </div>
+</div>
+
+<script>
+const PANELS = [
+  {id:0,label:'Overview'},
+  {id:1,label:'CNN-GRU'},
+  {id:2,label:'EfficientNet'},
+  {id:3,label:'Audit Fusion'},
+  {id:4,label:'Results'},
+];
+let current = 0;
+
+// Build step nav
+const nav = document.getElementById('stepNav');
+PANELS.forEach((p,i) => {
+  const wrap = document.createElement('div');
+  wrap.className = 'step-item';
+  if(i>0){ const c=document.createElement('div'); c.className='step-connector'; wrap.appendChild(c); }
+  const btn = document.createElement('div');
+  btn.className = 'step-btn'+(i===0?' active':'');
+  btn.innerHTML = `<span class="step-num">${i+1}</span>${p.label}`;
+  btn.onclick = () => goTo(i);
+  wrap.appendChild(btn);
+  nav.appendChild(wrap);
+});
+
+// Build frames grid
+const fg = document.getElementById('framesGrid');
+for(let i=0;i<16;i++){
+  const cell = document.createElement('div');
+  cell.className = 'frame-cell';
+  const op = 0.25+(i/15)*0.75;
+  const r  = 7+(i/15)*6;
+  cell.innerHTML = `<svg width="36" height="36" viewBox="0 0 36 36">
+    <circle cx="18" cy="18" r="${r*1.4}" fill="none" stroke="rgba(0,212,255,${op})" stroke-width="1.4"/>
+    ${i>3?`<circle cx="${14+(i%3)*2}" cy="${14+(i%2)*3}" r="${r*0.55}" fill="none" stroke="rgba(0,212,255,${op*.65})" stroke-width="1"/>`:``}
+    ${i>8?`<circle cx="20" cy="20" r="${r*0.4}" fill="none" stroke="rgba(0,212,255,${op*.45})" stroke-width="0.8"/>`:``}
+    <text x="50%" y="93%" text-anchor="middle" fill="rgba(0,212,255,0.4)" font-size="4.5" font-family="JetBrains Mono">f${i+1}</text>
+  </svg>`;
+  fg.appendChild(cell);
+}
+setInterval(()=>{
+  const cells=fg.querySelectorAll('.frame-cell');
+  cells.forEach(c=>c.classList.remove('lit'));
+  cells[Math.floor(Date.now()/350)%16].classList.add('lit');
+},350);
+
+// Build timeline
+const td=[
+  {label:'tPNa',start:0, len:11,color:'#00d4ff',tip:'Pronuclear Appearance'},
+  {label:'t2',  start:9, len:13,color:'#22d3ee',tip:'2-cell stage'},
+  {label:'t3',  start:20,len:11,color:'#38bdf8',tip:'3-cell stage'},
+  {label:'t5',  start:29,len:16,color:'#818cf8',tip:'5-cell stage'},
+  {label:'t8',  start:43,len:13,color:'#a78bfa',tip:'8-cell stage'},
+  {label:'tSB', start:54,len:14,color:'#c084fc',tip:'Start Blastulation'},
+  {label:'tB',  start:66,len:13,color:'#e879f9',tip:'Blastocyst'},
+  {label:'tEB', start:77,len:23,color:'#10b981',tip:'Expanded Blastocyst'},
+];
+const tc=document.getElementById('timelineChart');
+td.forEach(d=>{
+  const row=document.createElement('div');
+  row.className='timeline-stage';
+  row.innerHTML=`<div class="ts-label" title="${d.tip}">${d.label}</div>
+    <div class="ts-bar-bg"><div class="ts-bar-fill" style="--w:${d.len}%;margin-left:${d.start}%;background:${d.color};box-shadow:0 0 5px ${d.color}55;animation-delay:${d.start*.01}s;"></div></div>`;
+  tc.appendChild(row);
+});
+
+function toggleLegend(btn){
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
+}
+
+function goTo(idx){
+  if(idx<0||idx>=PANELS.length) return;
+  document.getElementById(`panel-${current}`).classList.remove('active');
+  document.querySelectorAll('.step-btn')[current].classList.remove('active');
+  current=idx;
+  document.getElementById(`panel-${current}`).classList.add('active');
+  document.querySelectorAll('.step-btn')[current].classList.add('active');
+  document.querySelectorAll('.progress-bar-fill,.signal-fill,.ts-bar-fill').forEach(el=>{
+    el.style.animation='none'; el.offsetHeight; el.style.animation='';
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function changePanel(dir){ goTo(current+dir); }
+</script>
+</body>
+</html>
